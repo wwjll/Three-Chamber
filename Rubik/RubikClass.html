@@ -1,0 +1,585 @@
+
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <title>RubikClass</title>
+        <script type="text/javascript" src="../libs/three.js"></script>
+        <script type="text/javascript" src="../libs/OrbitControls.js"></script>
+        <!-- <link rel="stylesheet" href="./reset.import.css"> -->
+        <style type="text/css">
+            div#canvas-frame {
+                cursor: pointer;
+                width:100%;
+                height:100%;
+                background-color: #EEEEEE;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="canvas-frame"></div>
+        <script>
+            /*
+            * 原版三阶改写成面向对象的方式
+            * 程序运行后是一个大方块，每个面有两个颜色不同的三角形
+            */
+            function min(arr) {
+                // 求数组最小值
+                let len = arr.length;
+                let min = arr[0];
+                for (let i = 1; i < len; i++) {
+                    if(arr[i] < min) {
+                        min = arr[i];
+                    }
+                }
+                return min
+            }
+            
+            //如果有变化则可能还需要requestAnimationFrame刷新
+            window.requestAnimFrame = (function() {
+                return window.requestAnimationFrame ||
+                       window.mozRequestAnimationFrame ||
+                       window.webkitRequestAnimationFrame ||
+                       window.msRequestAnimationFrame ||
+                       window.webkitRequestAnimationFrame;
+            })();
+            class Rubik {
+                constructor() {                     
+                    //存储鼠标坐标或者触摸坐标
+                    this.mouse = new THREE.Vector2();
+                    //魔方是否正在转动
+                    this.isRotating = false;
+                    //碰撞光线穿过的元素
+                    this.intersect;
+                    //触发平面法向量
+                    this.normalize = null;
+                    //触发点
+                    this.startPoint = null;
+                    this.movePoint = null;
+                    //魔方初始状态
+                    this.initStatus = [];
+                    //魔方转动的六个方向
+                    this.xLine = new THREE.Vector3( 1, 0, 0 );
+                    this.xLineAd = new THREE.Vector3( -1, 0, 0 );
+                    this.yLine = new THREE.Vector3( 0, 1, 0 );
+                    this.yLineAd = new THREE.Vector3( 0, -1, 0 );
+                    this.zLine = new THREE.Vector3( 0, 0, 1 );
+                    this.zLineAd = new THREE.Vector3( 0, 0, -1 );
+                    //魔方参数
+                    this.cubeParams = {
+                        x:0,
+                        y:0,
+                        z:0,
+                        num:3,
+                        len:50,
+                        colors:['rgba(255,193,37,1)','rgba(0,191,255,1)',
+                                'rgba(50,205,50,1)','rgba(178,34,34,1)',
+                                'rgba(255,255,0,1)','rgba(255,255,255,1)']
+                    };
+                    // 材质
+                    this.materialArr = [];
+                    // 方块
+                    this.cubes = [];
+
+                    this.width = window.innerWidth;
+                    this.height = window.innerHeight;
+                    this.scene = new THREE.Scene();
+                    // 渲染器
+                    this.renderer = new THREE.WebGLRenderer({
+                        antialias : true
+                    });
+                    // 相机
+                    this.camera = new THREE.PerspectiveCamera(45, this.width / this.height, 1, 1000);
+                    // 灯光
+                    this.light = new THREE.AmbientLight(0xfefefe);
+                    // 原点
+                    this.origPoint = new THREE.Vector3(0, 0, 0);
+                    // 鼠标点击位置
+                    this.mousePosition = {};
+                    //光线碰撞检测器
+                    this.raycaster = new THREE.Raycaster();
+                    // 
+                    this.normalize;
+                    this.startPoint;
+                    this.isRotating = false;
+                    this.getSingleton = () => {
+                        if (this.singleton === null) {
+                            this.singleton = new Rubik();
+                        } else {
+                            return this.singleton;
+                        }
+                    }
+                }
+                generateTexture(rgbaColor) {
+                    let canvas = document.createElement('canvas');
+                    canvas.width = 128;
+                    canvas.height = 128;
+                    let context = canvas.getContext('2d');
+                    if (context) {
+                        //画一个宽高都是256的黑色正方形
+                        context.fillStyle = 'rgba(0,0,0,1)';
+                        context.fillRect(0, 0, 128, 128);
+                        //在内部用某颜色的16px宽的线再画一个宽高为224的圆角正方形并用改颜色填充
+                        context.rect(8, 8, 112, 112);
+                        context.lineJoin = 'round';
+                        context.lineWidth = 8;
+                        context.fillStyle = rgbaColor;
+                        context.strokeStyle = rgbaColor;
+                        context.stroke();
+                        context.fill();
+                    } else {
+                        alert('您的浏览器不支持Canvas无法预览.\n');
+                    }
+                    return canvas;
+                }
+                createCubes() {
+                    // 创造魔方
+                    //魔方左上角坐标
+                    let {x, y, z, num, len, colors} = this.cubeParams;
+                    let leftUpX = x - num / 2 * len;
+                    let leftUpY = y + num / 2 * len;
+                    let leftUpZ = z + num / 2 * len;       
+                    for (let i = 0; i < colors.length; i++) {
+                        let texture = new THREE.Texture(this.generateTexture(colors[i]));
+                        texture.needsUpdate = true;
+                        let material = new THREE.MeshLambertMaterial({ map: texture });
+                        this.materialArr.push(material);
+                    }
+                    for (let i = 0; i < num; i++) {
+                        for (let j = 0; j < num * num; j++) {
+                            let cubegeo = new THREE.BoxGeometry(len, len, len);
+                            let cube = new THREE.Mesh(cubegeo, this.materialArr);
+                            //依次计算各个小方块中心点坐标
+                            cube.position.x = (leftUpX + len / 2) + (j % num) * len;
+                            cube.position.y = (leftUpY - len / 2) - parseInt(j / num) * len;
+                            cube.position.z = (leftUpZ - len / 2) - i * len;
+                            cube.cubeIndex = cube.id;
+                            this.initStatus.push({
+                                x:cube.position.x,
+                                y:cube.position.y,
+                                z:cube.position.z,
+                                cubeIndex:cube.id
+                            });
+                            this.cubes.push(cube)
+                        }
+                    }
+                    
+                    
+                    return this.cubes;
+                }
+                createVirtualBox() {
+                    let { num } = this.cubeParams;
+                    // 与魔方等大的透明盒
+                    let boxGeo= new THREE.BoxGeometry(150, 150, 150)
+                    let hexColor = 0x000000;
+                    for (let i = 0; i < boxGeo.faces.length; i+= 2) {
+                        // 一个面由两个三角形构成
+                        boxGeo.faces[i].color.setHex(hexColor);
+                        boxGeo.faces[i + 1].color.setHex(hexColor);
+                    }
+                    let boxMat = new THREE.MeshBasicMaterial({vertexColors: THREE.FaceColors, opacity: 0, transparent: true});
+                    let virtualBox = new THREE.Mesh( boxGeo, boxMat );
+                    virtualBox.cubeType = 'coverCube';
+                    return virtualBox;
+                }
+                //获得旋转方向
+                getDirection(vector3) {
+                    let { xLine,xLineAd,yLine,yLineAd,zLine,zLineAd,normalize } = this;
+                    let direction;
+                    //判断差向量和x、y、z轴的夹角
+                    let xAngle = vector3.angleTo(xLine);
+                    let xAngleAd = vector3.angleTo(xLineAd);
+                    let yAngle = vector3.angleTo(yLine);
+                    let yAngleAd = vector3.angleTo(yLineAd);
+                    let zAngle = vector3.angleTo(zLine);
+                    let zAngleAd = vector3.angleTo(zLineAd);
+                    let minAngle = min([xAngle,xAngleAd,yAngle,yAngleAd,zAngle,zAngleAd]);//最小夹角
+
+                    switch(minAngle){
+                        case xAngle:
+                            direction = 0;//向x轴正方向旋转90度（还要区分是绕z轴还是绕y轴）
+                            if(normalize.equals(yLine)){
+                                direction = direction+0.1;//绕z轴顺时针
+                            }else if(normalize.equals(yLineAd)){
+                                direction = direction+0.2;//绕z轴逆时针
+                            }else if(normalize.equals(zLine)){
+                                direction = direction+0.3;//绕y轴逆时针
+                            }else{
+                                direction = direction+0.4;//绕y轴顺时针
+                            }
+                            break;
+                        case xAngleAd:
+                            direction = 1;//向x轴反方向旋转90度
+                            if(normalize.equals(yLine)){
+                                direction = direction+0.1;//绕z轴逆时针
+                            }else if(normalize.equals(yLineAd)){
+                                direction = direction+0.2;//绕z轴顺时针
+                            }else if(normalize.equals(zLine)){
+                                direction = direction+0.3;//绕y轴顺时针
+                            }else{
+                                direction = direction+0.4;//绕y轴逆时针
+                            }
+                            break;
+                        case yAngle:
+                            direction = 2;//向y轴正方向旋转90度
+                            if(normalize.equals(zLine)){
+                                direction = direction+0.1;//绕x轴逆时针
+                            }else if(normalize.equals(zLineAd)){
+                                direction = direction+0.2;//绕x轴顺时针
+                            }else if(normalize.equals(xLine)){
+                                direction = direction+0.3;//绕z轴逆时针
+                            }else{
+                                direction = direction+0.4;//绕z轴顺时针
+                            }
+                            break;
+                        case yAngleAd:
+                            direction = 3;//向y轴反方向旋转90度
+                            if(normalize.equals(zLine)){
+                                direction = direction+0.1;//绕x轴顺时针
+                            }else if(normalize.equals(zLineAd)){
+                                direction = direction+0.2;//绕x轴逆时针
+                            }else if(normalize.equals(xLine)){
+                                direction = direction+0.3;//绕z轴顺时针
+                            }else{
+                                direction = direction+0.4;//绕z轴逆时针
+                            }
+                            break;
+                        case zAngle:
+                            direction = 4;//向z轴正方向旋转90度
+                            if(normalize.equals(yLine)){
+                                direction = direction+0.1;//绕x轴顺时针
+                            }else if(normalize.equals(yLineAd)){
+                                direction = direction+0.2;//绕x轴逆时针
+                            }else if(normalize.equals(xLine)){
+                                direction = direction+0.3;//绕y轴顺时针
+                            }else{
+                                direction = direction+0.4;//绕y轴逆时针
+                            }
+                            break;
+                        case zAngleAd:
+                            direction = 5;//向z轴反方向旋转90度
+                            if(normalize.equals(yLine)){
+                                direction = direction+0.1;//绕x轴逆时针
+                            }else if(normalize.equals(yLineAd)){
+                                direction = direction+0.2;//绕x轴顺时针
+                            }else if(normalize.equals(xLine)){
+                                direction = direction+0.3;//绕y轴逆时针
+                            }else{
+                                direction = direction+0.4;//绕y轴顺时针
+                            }
+                            break;
+                        default:
+                            break;
+                    }
+                    return direction;
+                }
+                getBoxs(target,direction) {
+                    let { cubes } = this;
+                    let targetId = target.object.cubeIndex;
+                    let ids = [];    
+                    for(let i=0;i<cubes.length;i++){
+                        ids.push(cubes[i].cubeIndex);
+                    }
+                    let minId = min(ids);
+                    
+                    targetId = targetId-minId;
+                    // 第几层
+                    let numI = parseInt(targetId/9);
+                    // 第几个
+                    let numJ = targetId%9;
+                    let boxs = [];
+                    //根据绘制时的规律判断 no = i*9+j
+                    switch(direction){
+                        //绕z轴
+                        case 0.1:
+                        case 0.2:
+                        case 1.1:
+                        case 1.2:
+                        case 2.3:
+                        case 2.4:
+                        case 3.3:
+                        case 3.4:
+                            for(let i=0;i<cubes.length;i++){
+                                let tempId = cubes[i].cubeIndex-minId;
+                                if(numI===parseInt(tempId/9)){
+                                    boxs.push(cubes[i]);
+                                }
+                            }
+                            
+                            break;
+                        //绕y轴
+                        case 0.3:
+                        case 0.4:
+                        case 1.3:
+                        case 1.4:
+                        case 4.3:
+                        case 4.4:
+                        case 5.3:
+                        case 5.4:
+                            for(let i=0;i<cubes.length;i++){
+                                let tempId = cubes[i].cubeIndex-minId;
+                                if(parseInt(numJ/3)===parseInt(tempId%9/3)){
+                                    boxs.push(cubes[i]);
+                                }
+                            }
+                            break;
+                        //绕x轴
+                        case 2.1:
+                        case 2.2:
+                        case 3.1:
+                        case 3.2:
+                        case 4.1:
+                        case 4.2:
+                        case 5.1:
+                        case 5.2:
+                            for(let i=0;i<cubes.length;i++){
+                                let tempId = cubes[i].cubeIndex-minId;                           
+                                if(tempId%9%3===numJ%3){
+                                    boxs.push(cubes[i]);
+                                }
+                            }
+                            break;
+                        default:
+                            break;
+                    } 
+                    return boxs;
+                }
+                startCube(event) {
+                    this.getIntersects(event);
+                    //魔方没有处于转动过程中且存在碰撞物体                   
+                    if(!this.isRotating && this.intersect){                       
+                        //开始转动，设置起始点
+                        this.startPoint = this.intersect.point;
+                        //当刚开始的接触点在魔方上时操作为转动魔方，屏蔽控制器转动
+                        this.controller.enabled = false;
+                    }else{
+                        //当刚开始的接触点没有在魔方上或者在魔方上但是魔方正在转动时操作转动控制器
+                        this.controller.enabled = true;
+                    }
+                }
+                moveCube(event) {              
+                    this.getIntersects(event);
+                    if(this.intersect) { 
+                        if (this.startPoint && !this.isRotating) {                    
+                            this.movePoint = this.intersect.point;
+                            if (!this.startPoint.equals(this.movePoint)) {                                
+                                this.isRotating = true;
+                                let rotatingVector = this.movePoint.sub(this.startPoint);
+                                let direction = this.getDirection(rotatingVector);
+                                let elements = this.getBoxs(this.intersect, direction);
+                                window.requestAnimFrame(function(timestamp){
+                                    this.rotateAnimation(elements,direction,timestamp,0)
+                                }.bind(this));
+                            }
+                        }
+                    }
+                }
+                stopCube(event) {
+                    //魔方操作结束
+                    this.intersect = null;
+                    this.startPoint = null
+                }               
+                setCamera() {                   
+                    this.camera.position.set(0, 0, 600);
+                    //正方向
+                    this.camera.up.set(0, 1, 0);
+                    this.camera.lookAt(this.origPoint);
+                    //视角控制
+                    this.controller = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+                    //设置控制点
+                    this.controller.target = this.origPoint;
+                    
+                }
+                setLight() {
+                    this.scene.add(this.light);
+                }
+                addToScene() {
+                    // 初始化方块并添加到场景中
+                    let cubes = this.createCubes();
+                    let virtualBox = this.createVirtualBox();
+                    for (let i = 0; i < cubes.length; i++) {
+                        this.scene.add(cubes[i]);
+                    }
+                    this.scene.add(virtualBox)
+                }
+                setRenderer() {
+                    this.renderer.setSize(this.width, this.height);
+                    this.renderer.setClearColor(0xFFFFFF, 1.0);
+                    document.getElementById('canvas-frame').appendChild(this.renderer.domElement);
+                    //监听鼠标事件
+                    this.renderer.domElement.addEventListener('mousedown', this.startCube.bind(this), false);
+                    this.renderer.domElement.addEventListener('mousemove', this.moveCube.bind(this), false );
+                    this.renderer.domElement.addEventListener('mouseup', this.stopCube.bind(this),false);
+                    //监听触摸事件
+                    this.renderer.domElement.addEventListener('touchstart', this.startCube.bind(this), false);
+                    this.renderer.domElement.addEventListener('touchmove', this.moveCube.bind(this), false);
+                    this.renderer.domElement.addEventListener('touchend', this.stopCube.bind(this), false);
+                }
+                getIntersects(event) {
+                    // 获取光线碰撞目标和平面
+                    if (event.touches) {
+                        let touch = event.touches[0];
+                        this.mousePosition.x = (touch.clientX / this.width)*2 - 1;
+                        this.mousePosition.y = -(touch.clientY / this.height)*2 + 1;
+                    }else{
+                        this.mousePosition.x = (event.clientX / this.width)*2 - 1;
+                        this.mousePosition.y = -(event.clientY / this.height)*2 + 1;
+
+                    }
+                    this.raycaster.setFromCamera(this.mousePosition, this.camera);
+                    let intersects = this.raycaster.intersectObjects(this.scene.children);
+                    if (intersects.length) {
+                        try {
+                            if (intersects[0].object.cubeType === "coverCube") {                          
+                                this.normalize = intersects[0].face.normal;
+                                this.intersect = intersects[1];
+                            } else {
+                                this.intersect = intersects[0];
+                                this.normalize = intersects[1].face.normal;
+                            }
+                        } catch(err) {
+                            // console.log(err)
+                        }
+                    }
+            
+                }
+                rotateAroundWorldY(obj,rad) {
+                    let x0 = obj.position.x;
+                    let z0 = obj.position.z;
+                    let q = new THREE.Quaternion(); 
+                    q.setFromAxisAngle( new THREE.Vector3( 0, 1, 0 ), rad );
+                    obj.quaternion.premultiply( q );
+                    obj.position.x = Math.cos(rad)*x0+Math.sin(rad)*z0;
+                    obj.position.z = Math.cos(rad)*z0-Math.sin(rad)*x0;
+                }
+                rotateAroundWorldZ(obj,rad) {
+                    let x0 = obj.position.x;
+                    let y0 = obj.position.y;
+                    let q = new THREE.Quaternion(); 
+                    q.setFromAxisAngle( new THREE.Vector3( 0, 0, 1 ), rad );
+                    obj.quaternion.premultiply( q );
+                    obj.position.x = Math.cos(rad)*x0-Math.sin(rad)*y0;
+                    obj.position.y = Math.cos(rad)*y0+Math.sin(rad)*x0;
+                }
+                rotateAroundWorldX(obj,rad) {
+                    let y0 = obj.position.y;
+                    let z0 = obj.position.z;
+                    let q = new THREE.Quaternion(); 
+                    q.setFromAxisAngle( new THREE.Vector3( 1, 0, 0 ), rad );
+                    obj.quaternion.premultiply( q );
+                    obj.position.y = Math.cos(rad)*y0-Math.sin(rad)*z0;
+                    obj.position.z = Math.cos(rad)*z0+Math.sin(rad)*y0;
+                }
+                //更新位置索引
+                updateCubeIndex(elements){
+                    let { initStatus, cubeParams } = this
+                    for(let i=0;i<elements.length;i++){
+                        let temp1 = elements[i];
+                        for(let j=0;j<initStatus.length;j++){
+                            let temp2 = initStatus[j];
+                            if( Math.abs(temp1.position.x - temp2.x)<=cubeParams.len/2 && 
+                                Math.abs(temp1.position.y - temp2.y)<=cubeParams.len/2 && 
+                                Math.abs(temp1.position.z - temp2.z)<=cubeParams.len/2 ){
+                                temp1.cubeIndex = temp2.cubeIndex;
+                                break;
+                            }
+                        }
+                    }
+                }
+                /**
+                * 旋转动画
+                */
+                rotateAnimation(elements,direction,currentstamp,startstamp,laststamp){
+                    let totalTime = 500;//转动的总运动时间
+                    if(startstamp===0){
+                        startstamp = currentstamp;
+                        laststamp = currentstamp;
+                    }
+                    if(currentstamp-startstamp>=totalTime){
+                        currentstamp = startstamp+totalTime;
+                        this.isRotating = false;
+                        this.fstartPoint = null;
+                        this.updateCubeIndex(elements);
+                    }
+                    switch(direction){
+                        //绕z轴顺时针
+                        case 0.1:
+                        case 1.2:
+                        case 2.4:
+                        case 3.3:
+                            for(let i=0;i<elements.length;i++){
+                                this.rotateAroundWorldZ(elements[i],-90*Math.PI/180*(currentstamp-laststamp)/totalTime);
+                            }
+                            break;
+                        //绕z轴逆时针
+                        case 0.2:
+                        case 1.1:
+                        case 2.3:
+                        case 3.4:
+                            for(let i=0;i<elements.length;i++){
+                                this.rotateAroundWorldZ(elements[i],90*Math.PI/180*(currentstamp-laststamp)/totalTime);
+                            }
+                            break;
+                        //绕y轴顺时针
+                        case 0.4:
+                        case 1.3:
+                        case 4.3:
+                        case 5.4:
+                            for(let i=0;i<elements.length;i++){
+                                this.rotateAroundWorldY(elements[i],-90*Math.PI/180*(currentstamp-laststamp)/totalTime);
+                            }
+                            break;
+                        //绕y轴逆时针
+                        case 1.4:
+                        case 0.3:
+                        case 4.4:
+                        case 5.3:
+                            for(let i=0;i<elements.length;i++){
+                                this.rotateAroundWorldY(elements[i],90*Math.PI/180*(currentstamp-laststamp)/totalTime);
+                            }
+                            break;
+                        //绕x轴顺时针
+                        case 2.2:
+                        case 3.1:
+                        case 4.1:
+                        case 5.2:
+                            for(let i=0;i<elements.length;i++){
+                                this.rotateAroundWorldX(elements[i],90*Math.PI/180*(currentstamp-laststamp)/totalTime);
+                            }
+                            break;
+                        //绕x轴逆时针
+                        case 2.1:
+                        case 3.2:
+                        case 4.2:
+                        case 5.1:
+                            for(let i=0;i<elements.length;i++){
+                                this.rotateAroundWorldX(elements[i],-90*Math.PI/180*(currentstamp-laststamp)/totalTime);
+                            }
+                            break;
+                        default:
+                            break;
+                    }
+                    if(currentstamp-startstamp<totalTime){
+                        window.requestAnimFrame(function(timestamp){
+                            this.rotateAnimation(elements,direction,timestamp,startstamp,currentstamp);
+                        }.bind(this));
+                    }
+                }
+                render() {
+                    this.renderer.clear();
+                    this.renderer.render(this.scene, this.camera);
+                    window.requestAnimFrame(this.render.bind(this));
+                }
+                load() {
+                    this.setCamera()
+                    this.setLight()
+                    this.addToScene()
+                    this.setRenderer()    
+                    this.render()
+                }
+            }
+            const scene = new Rubik()
+            scene.load()
+        </script>
+    </body>
+</html>
