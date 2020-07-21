@@ -1,7 +1,7 @@
 # Three-Chamber
 基于 three.js 做的一些程序和学习示例。
 
-# /Rubik
+# Rubik
 魔方程序，包括步骤过程，GUI面板控制（todo），阶数变换,改写成 class 类等。clone 后可以直接打开 html 文件试验效果。
 原始的三阶魔方实现方法来自 https://zhuanlan.zhihu.com/p/33580374, 本人学习后进行改写和扩充。
 有兴趣可以跟着文章从头实现，有遇到四元数旋转或其他较难理解的概念可参考以下描述。
