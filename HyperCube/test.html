@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>test</title>
+    <script src="../libs/three.js"></script>
+    <script src="../libs/OrbitControls.js"></script>
+</head>
+<body onload="threeStart()">
+    <div id="canvas-frame"></div>
+    <script>  
+        /*
+        * 使用 threejs 构造应用的通用框架，能解决大部分需求
+        * 程序运行后是一个大方块，每个面有两个颜色不同的三角形,场景中添加了 OrbitControls 可以移动相机观看
+        */
+        window.requestAnimFrame = (function() {
+            //如果有变化则可能还需要requestAnimationFrame刷新
+            return window.requestAnimationFrame ||
+                    window.mozRequestAnimationFrame ||
+                    window.webkitRequestAnimationFrame ||
+                    window.msRequestAnimationFrame ||
+                    window.webkitRequestAnimationFrame;
+        })()
+        // 
+        let lines = [];
+        var renderer;
+        //创建相机，并设置正方向和中心点
+        var camera;
+        //视角控制器
+        var controller;
+        //创建场景，后续元素需要加入到场景中才会显示出来
+        var scene;
+        //创建光线
+        var light;
+        // 视角控制器
+        var controller;
+        function initThree() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            renderer = new THREE.WebGLRenderer({
+                antialias : true
+            });
+            renderer.setSize(width, height);
+            renderer.setClearColor(0xFFFFFF, 1.0);
+            document.getElementById('canvas-frame').appendChild(renderer.domElement);
+        } 
+        function initCamera() {
+            camera = new THREE.PerspectiveCamera(45, width / height, 1, 1000);
+            camera.position.set(0, 0, 600);
+            //正方向
+            camera.up.set(0, 1, 0);
+            camera.lookAt(new THREE.Vector3(0, 0, 0));
+            //视角控制
+            controller = new THREE.OrbitControls(camera, renderer.domElement);
+            //设置控制点
+            controller.target = new THREE.Vector3(0, 0, 0);
+        }
+        function initScene() {
+            scene = new THREE.Scene();
+        }
+        
+        function initLight() {
+            light = new THREE.AmbientLight(0xfefefe);
+            scene.add(light);
+        }    
+        function connectPoints(points, material) {
+            for (i=0; i<4; i++) {
+                line_points = [];
+                line_points.push(points[i]);
+                line_points.push(points[i+4]);
+                let geometry = new THREE.BufferGeometry().setFromPoints( line_points );
+                let line = new THREE.Line( geometry, material ); 
+                scene.add( line ); 
+            }
+            for (i=0; i<4; i++) {
+                line_points = [];
+                if (i == 3) {
+                    line_points.push(points[i]);
+                    line_points.push(points[i - 3]);
+                }else {
+                    line_points.push(points[i]);
+                    line_points.push(points[i+1]);
+                }
+                let geometry = new THREE.BufferGeometry().setFromPoints( line_points );
+                let line = new THREE.Line( geometry, material ); 
+                scene.add( line );    
+            }
+            for (i=4; i<8; i++) {
+                line_points = [];
+                if (i == 7) {
+                    line_points.push(points[i]);
+                    line_points.push(points[i - 3]);
+                }else {
+                    line_points.push(points[i]);
+                    line_points.push(points[i+1]);
+                }
+                let geometry = new THREE.BufferGeometry().setFromPoints( line_points );
+                let line = new THREE.Line( geometry, material ); 
+                scene.add( line );    
+            }
+
+        }
+        function conncetBetween(points1, points2, material) {
+            for(i=0; i<8; i++) {
+                line_points = [points1[i], points2[i]];
+                let geometry = new THREE.BufferGeometry().setFromPoints( line_points );
+                let line = new THREE.Line( geometry, material ); 
+                scene.add( line );
+            }
+        }
+        function initObject() {
+            let layer1_points = [
+                new THREE.Vector3( 50, 50, -50),
+                new THREE.Vector3( -50, 50, -50),
+                new THREE.Vector3( -50, -50, -50),
+                new THREE.Vector3( 50, -50, -50),
+
+                new THREE.Vector3( 50, 50, 50),
+                new THREE.Vector3( -50, 50, 50),
+                new THREE.Vector3( -50, -50, 50),
+                new THREE.Vector3( 50, -50, 50)
+            ];
+            let layer2_points = [
+                new THREE.Vector3( 100, 100, -100),
+                new THREE.Vector3( -100, 100, -100),
+                new THREE.Vector3( -100, -100, -100),
+                new THREE.Vector3( 100, -100, -100),
+
+                new THREE.Vector3( 100, 100, 100),
+                new THREE.Vector3( -100, 100, 100),
+                new THREE.Vector3( -100, -100, 100),
+                new THREE.Vector3( 100, -100, 100)
+            ];
+            let material = new THREE.LineBasicMaterial( { color: 0x0000ff } );
+            connectPoints(layer1_points, material);
+            connectPoints(layer2_points, material);
+            conncetBetween(layer1_points, layer2_points, material)
+            // 加入辅助坐标轴
+            // axes = new THREE.AxisHelper(500);
+            // scene.add(axes);
+            scene.children.forEach(item => {
+               if(item.type === 'Line') {
+                    lines.push(item)
+                } 
+            })   
+        }
+        function rotateXYZW(theta, obj) {
+            // 旋转矩阵
+            rm = new THREE.Matrix4();
+            c = Math.cos(theta);
+            s = Math.sin(theta);
+            rm.set(
+                c, -s, 0, 0,
+                s, c, 0, 0,
+                0, 0, c, -s,
+                0, 0, s, c,
+            )
+            // 投影矩阵
+            projected_matrix = new THREE.Matrix3();
+            projected_matrix.set(
+                1, 0, 0, 0,
+                0, 1, 0, 0,
+                0, 0, 1, 0,
+            )
+            // 
+            let points = obj.geometry.getAttribute('position').array;
+            let start = points.slice(0, 3);
+            let end = points.slice(3, 6);
+            // 
+            let start_Vect4 = new THREE.Vector4();
+            start_Vect4.set(start)
+            console.log(start, start_Vect4)
+        }
+        function update(obj, vectices) {
+            // 更新物体位置
+            var vertices = new Float32Array([
+                50, 50, -50, 
+                50, 50, 0
+            ]);
+            
+            if (obj.length > 1) {
+                objArray.forEach(item => {
+                   item.geometry.setAttribute('position', new THREE.BufferAttribute( vertices, 3 )); 
+                })
+            } else {
+                obj.geometry.setAttribute('position', new THREE.BufferAttribute( vertices, 3 )); 
+            }
+        }
+        function render(){
+            renderer.clear();
+            renderer.render(scene, camera);
+            window.requestAnimFrame(render);
+        }
+        function startAnim() {
+            theta = 0.01;
+            lines.forEach(item => {
+                rotateXYZW(item, theta);
+            })
+            window.requestAnimationFrame(function() {
+                startAnim();
+            })
+        }
+        function threeStart() {
+            initThree();
+            initCamera();
+            initScene();
+            initLight();
+            initObject();
+            render();
+            a = new THREE.Vector4()
+            console.log(a.__proto__);
+        }
+    </script>
+</body>
+
+</html>
