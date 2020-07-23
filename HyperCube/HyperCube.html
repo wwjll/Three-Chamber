@@ -23,46 +23,31 @@
         })()
         // 角度变化量
         var theta = 0;
-        let lines = [];
-        var distance = 2;
-        
-        const p0 = new THREE.Vector4( 1, 1, -1, 1);
-        const p1 = new THREE.Vector4( -1, 1, -1, 1);
-        const p2 = new THREE.Vector4( -1, -1, -1, 1);
-        const p3 = new THREE.Vector4( 1, -1, -1, 1);
-        const p4 = new THREE.Vector4( 1, 1, 1, 1);
-        const p5 = new THREE.Vector4( -1, 1, 1, 1);
-        const p6 = new THREE.Vector4( -1, -1, 1, 1);
-        const p7 = new THREE.Vector4( 1, -1, 1, 1);
+        // 所有的 Line 
+        var lines = [];
+        // 放大
+        // var scalar = 100;
+        // 相机距离
+        var distance = 2;   
+        var points = [
+            new THREE.Vector4( 1, 1, -1, 1),
+            new THREE.Vector4( -1, 1, -1, 1),
+            new THREE.Vector4( -1, -1, -1, 1),
+            new THREE.Vector4( 1, -1, -1, 1),
+            new THREE.Vector4( 1, 1, 1, 1),
+            new THREE.Vector4( -1, 1, 1, 1),
+            new THREE.Vector4( -1, -1, 1, 1),
+            new THREE.Vector4( 1, -1, 1, 1),
 
-        const p8 = new THREE.Vector4( 1, 1, -1, -1);
-        const p9 = new THREE.Vector4( -1, 1, -1, -1);
-        const p10 = new THREE.Vector4( -1, -1, -1, -1);
-        const p11 = new THREE.Vector4( 1, -1, -1, -1);
-        const p12 = new THREE.Vector4( 1, 1, 1, -1);
-        const p13 = new THREE.Vector4( -1, 1, 1, -1);
-        const p14 = new THREE.Vector4( -1, -1, 1, -1);
-        const p15 = new THREE.Vector4( 1, -1, 1, -1);
-        var points = [p0 ,p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15];    
-        // var points = [
-        //     new THREE.Vector4( 1, 1, -1, 1),
-        //     new THREE.Vector4( -1, 1, -1, 1),
-        //     new THREE.Vector4( -1, -1, -1, 1),
-        //     new THREE.Vector4( 1, -1, -1, 1),
-        //     new THREE.Vector4( 1, 1, 1, 1),
-        //     new THREE.Vector4( -1, 1, 1, 1),
-        //     new THREE.Vector4( -1, -1, 1, 1),
-        //     new THREE.Vector4( 1, -1, 1, 1),
-
-        //     new THREE.Vector4( 1, 1, -1, -1),
-        //     new THREE.Vector4( -1, 1, -1, -1),
-        //     new THREE.Vector4( -1, -1, -1, -1),
-        //     new THREE.Vector4( 1, -1, -1, -1),
-        //     new THREE.Vector4( 1, 1, 1, -1),
-        //     new THREE.Vector4( -1, 1, 1, -1),
-        //     new THREE.Vector4( -1, -1, 1, -1),
-        //     new THREE.Vector4( 1, -1, 1, -1)
-        // ];
+            new THREE.Vector4( 1, 1, -1, -1),
+            new THREE.Vector4( -1, 1, -1, -1),
+            new THREE.Vector4( -1, -1, -1, -1),
+            new THREE.Vector4( 1, -1, -1, -1),
+            new THREE.Vector4( 1, 1, 1, -1),
+            new THREE.Vector4( -1, 1, 1, -1),
+            new THREE.Vector4( -1, -1, 1, -1),
+            new THREE.Vector4( 1, -1, 1, -1)
+        ];
         var renderer;
         //创建相机，并设置正方向和中心点
         var camera;
@@ -120,6 +105,7 @@
             v3.x = projected_v4.x;
             v3.y = projected_v4.y;
             v3.z = projected_v4.z;
+            // v3.addScalar(scalar);
             return v3;
         }
         function initThree() {
@@ -157,8 +143,8 @@
                 line_points = [];
                 line_points.push(points[i]);
                 line_points.push(points[i+4]);
-                let geometry = new THREE.BufferGeometry().setFromPoints( line_points );
-                let line = new THREE.Line( geometry, material );
+                var geometry = new THREE.BufferGeometry().setFromPoints( line_points );
+                var line = new THREE.Line( geometry, material );
                 // 把每条线顶点按在 points 里的顺序存储
                 if (layer === 1) {
                     start = i;
@@ -194,8 +180,8 @@
                         end = i + 9;
                     } 
                 }
-                let geometry = new THREE.BufferGeometry().setFromPoints( line_points );
-                let line = new THREE.Line( geometry, material ); 
+                var geometry = new THREE.BufferGeometry().setFromPoints( line_points );
+                var line = new THREE.Line( geometry, material ); 
                 line.start = start; line.end = end;
                 scene.add( line );    
             }
@@ -203,16 +189,14 @@
         function conncetBetween(points1, points2, material) {
             for(i=0; i<8; i++) {
                 line_points = [points1[i], points2[i]];
-                let geometry = new THREE.BufferGeometry().setFromPoints( line_points );
-                let line = new THREE.Line( geometry, material ); 
+                var geometry = new THREE.BufferGeometry().setFromPoints( line_points );
+                var line = new THREE.Line( geometry, material ); 
                 line.start = i; line.end = i + 8;
                 scene.add( line );
             }
         }
         function initObject() {
-            let material = new THREE.LineBasicMaterial( { color: 0x0000ff } );
-            // 缩放
-            scale = 50;
+            var material = new THREE.LineBasicMaterial( { color: 0x0000ff } );
             cube1_positions = [];
             cube2_positions = [];
             for(i=0; i<8; i++) {
@@ -232,10 +216,21 @@
             // axes = new THREE.AxisHelper(500);
             // scene.add(axes);  
         }
-        function rotateXYZW(theta, obj) {
-            //
-            let start = points[obj.start].clone();
-            let end = points[obj.end].clone();
+        function rotateXYZW() {
+            var c_points = [];
+            for(i=0;i<16;i++) {
+                c_points[i] = applyRotatedXYZW(points[i].clone())
+            }
+            lines.forEach(item => {
+                // 更新位置
+                var vertices = new Float32Array([
+                    c_points[item.start].x, c_points[item.start].y, c_points[item.start].z,
+                    c_points[item.end].x, c_points[item.end].y, c_points[item.end].z,
+                ]);
+                item.geometry.setAttribute('position', new THREE.BufferAttribute( vertices, 3 )); 
+            })
+        }
+        function applyRotatedXYZW(v4) {
             // 先旋转
             rotate_matrix = new THREE.Matrix4(); 
             c = Math.cos(theta);
@@ -246,20 +241,11 @@
                 0, 0, c, -s,
                 0, 0, s, c,
             );
-            rotated_start = start.applyMatrix4(rotate_matrix);
-            rotated_end = end.applyMatrix4(rotate_matrix);
-            // console.log(rotated_start, rotated_start)
+            rotated_v4 = v4.applyMatrix4(rotate_matrix);
             // 再投影
-            start_w = 1/(distance - rotated_start.w);
-            end_w = 1/(distance - rotated_end.w);
-            projected_start = Vector4To3(rotated_start, start_w);
-            projected_end = Vector4To3(rotated_end, end_w);
-            // 更新位置
-            let vertices = new Float32Array([
-                projected_start.x, projected_start.y, projected_start.z, 
-                projected_end.x, projected_end.y, projected_end.z, 
-            ]);
-            obj.geometry.setAttribute('position', new THREE.BufferAttribute( vertices, 3 )); 
+            projected_w = 1/(distance - rotated_v4.w);
+            projected_v4 = Vector4To3(rotated_v4, projected_w);
+            return projected_v4
         }
         function render(){
             renderer.clear();
@@ -268,9 +254,7 @@
         }
         function startAnim() {
             theta += 0.01;
-            lines.forEach(item => {
-                rotateXYZW(theta, item);
-            });
+            rotateXYZW();
             window.requestAnimationFrame(function() {
                 startAnim();
             })
