@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Auxilary</title>
+    <script src="../libs/three.js"></script>
+</head>
+<body onload="Test()">
+    <div id="canvas-frame"></div>
+    <script>  
+        // 定义任意矩阵
+        function Matrix(rows, columns) {
+            this.rows = rows;
+            this.columns = columns;
+            this.elements = [[]];
+            // 如果是 n*n 方阵，则赋值为 n*n 单位矩阵
+            if (rows === columns) {
+                for(var i = 0; i < rows; i++) {
+                    this.elements[i] = [];
+                    for(var j = 0; j < columns; j++) {   
+                        if (i === j) {
+                            this.elements[i][j] = 1; 
+                            continue;
+                        }
+                        this.elements[i][j] = 0;
+                    }
+                }   
+                return;  
+            } 
+            console.warn('该矩阵不存在单位矩阵');
+            for(var i = 0; i < rows; i++) {
+                this.elements[i] = [];
+                for(var j = 0; j < columns; j++) {   
+                    this.elements[i][j] = 0;
+                }
+            } 
+        }
+       
+        Object.assign(Matrix.prototype, {
+            set: function ( valueArray ) {
+                var te = this.elements;
+                for(var i = 0; i < this.rows; i++) {
+                    this.elements[i] = [];
+                    for(var j = 0; j < this.columns; j++) {
+                        te[i][j] = valueArray[i][j];
+                    }
+                }
+            }
+        })
+        // 为 Vector4 注册左乘矩阵方法（示例）
+        Object.assign(THREE.Vector4.prototype, {
+            applyArbitraryMatrix: function(m) {
+                var x = this.x, y = this.y, z = this.z, w = this.w;
+                var e = m.elements;
+                var rows = m.rows;
+                var columns = m.columns;
+                var length = 4;
+                if (columns !== length ) {
+                    console.warn('不合法的矩阵');
+                    return;
+                } 
+                // 计算相乘
+                for(var j = 0; j < columns; j++) {
+                    this.x = e[ 0 ][ j ] * x + e[ 1 ][ j ]  * y + e[ 2 ][ j ]  * z + e[ 3 ][ j ]  * w;
+                    this.y = e[ 0 ][ j ] * x + e[ 1 ][ j ]  * y + e[ 2 ][ j ]  * z + e[ 3 ][ j ]  * w;
+                    this.z = e[ 0 ][ j ] * x + e[ 1 ][ j ]  * y + e[ 2 ][ j ]  * z + e[ 3 ][ j ]  * w;
+                    this.w = e[ 0 ][ j ] * x + e[ 1 ][ j ]  * y + e[ 2 ][ j ]  * z + e[ 3 ][ j ]  * w;
+                }
+
+                return this;
+            }
+        })
+        function Test() {
+            // 测试
+            a = new Matrix(4, 4);
+            a.set([[0,0,0,0],[1,1,1,1],[2,2,2,2], [3,3,3,3]])
+            b = new THREE.Vector4();
+            b.set(1,1,1,1);
+            var result = b.applyArbitraryMatrix(a);
+            console.log(result);
+        }  
+    </script>
+</body>
+
+</html>
