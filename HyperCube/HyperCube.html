@@ -5,8 +5,10 @@
     <title>HyperCube</title>
     <script src="../libs/three.js"></script>
     <script src="../libs/OrbitControls.js"></script>
+    <script src="../libs/Stats.js"></script>
 </head>
 <body onload="threeStart()">
+    <div id="Stats-output"></div>
     <div id="canvas-frame"></div>
     <script>  
         /*
@@ -21,6 +23,8 @@
                     window.msRequestAnimationFrame ||
                     window.webkitRequestAnimationFrame;
         })()
+        // 监控模块
+        var stats = new Stats();
         // 角度变化量
         var theta = 0;
         // 所有的 Line 
@@ -108,6 +112,17 @@
             // v3.addScalar(scalar);
             return v3;
         }
+        function initStats() {
+            //设置统计模式
+            stats.setMode(0); // 0: fps, 1: ms
+            //统计信息显示在左上角
+            stats.domElement.style.position = 'absolute';
+            stats.domElement.style.left = '0px';
+            stats.domElement.style.top = '0px';
+            //将统计对象添加到对应的<div>元素中
+            document.getElementById("Stats-output").appendChild(stats.domElement);
+            return stats;
+        }
         function initThree() {
             width = window.innerWidth;
             height = window.innerHeight;
@@ -117,6 +132,8 @@
             renderer.setSize(width, height);
             renderer.setClearColor(0xFFFFFF, 1.0);
             document.getElementById('canvas-frame').appendChild(renderer.domElement);
+            var stats = new Stats();
+            var stats = initStats();
         } 
         function initCamera() {
             camera = new THREE.PerspectiveCamera(45, width / height, 1, 1000);
@@ -250,6 +267,7 @@
         function render(){
             renderer.clear();
             renderer.render(scene, camera);
+            stats.update()
             window.requestAnimFrame(render);
         }
         function startAnim() {
